@@ -122,6 +122,108 @@ function createMeasurementRows(cable, signalState) {
   }));
 }
 
+function getResponseStatus(output) {
+  if (output.normal) {
+    return {
+      status: 'normal',
+      statusLabelZh: '正常'
+    };
+  }
+  if (output.state === 'disconnected') {
+    return {
+      status: 'cut',
+      statusLabelZh: '链路截断'
+    };
+  }
+  return {
+    status: 'abnormal',
+    statusLabelZh: '异常'
+  };
+}
+
+function createResponsePoint(cable, output, measurement, time) {
+  const responseStatus = getResponseStatus(output);
+  const baselineValue = measurement.normalValue;
+  const operatedValue = output.normal ? measurement.normalValue : measurement.abnormalValue;
+
+  return {
+    id: measurement.id,
+    pointId: measurement.id,
+    edgeId: cable.id,
+    labelZh: measurement.label,
+    signalNameZh: measurement.label,
+    signalId: cable.variableId,
+    variableId: cable.variableId,
+    baselineValue,
+    operatedValue,
+    unit: measurement.unit,
+    status: responseStatus.status,
+    statusLabelZh: responseStatus.statusLabelZh,
+    affectedByTarget: true,
+    reasonZh: output.reason,
+    samples: [
+      {
+        time,
+        baselineValue,
+        operatedValue,
+        normal: output.normal
+      }
+    ]
+  };
+}
+
+function buildResponseSummary(points) {
+  return points.reduce(
+    (summary, point) => {
+      summary.total += 1;
+      if (point.affectedByTarget) {
+        summary.affected += 1;
+      }
+      if (point.status === 'cut') {
+        summary.cut += 1;
+      }
+      if (point.status === 'abnormal' || point.status === 'cut') {
+        summary.abnormal += 1;
+      }
+      if (point.status === 'warning') {
+        summary.warning += 1;
+      }
+      if (point.status === 'compensating') {
+        summary.compensating += 1;
+      }
+      if (point.status === 'normal') {
+        summary.normal += 1;
+      }
+      return summary;
+    },
+    {
+      total: 0,
+      affected: 0,
+      cut: 0,
+      abnormal: 0,
+      warning: 0,
+      compensating: 0,
+      normal: 0
+    }
+  );
+}
+
+export function createCabinetMeasurementScenario(input = {}) {
+  const parameters = input.parameters ?? {};
+
+  return {
+    type: input.type || 'wire_state',
+    targetKind: input.targetKind || 'edge',
+    targetId: input.targetId || CABINET_DEMO_CABLES.mainPower.id,
+    parameters: {
+      connected: Boolean(parameters.connected),
+      sourcePortId: parameters.sourcePortId ?? CABINET_DEMO_CABLES.mainPower.expectedSourcePortId,
+      targetPortId: parameters.targetPortId ?? '',
+      time: Number.isFinite(Number(parameters.time)) ? Number(parameters.time) : 0
+    }
+  };
+}
+
 export function createCabinetDemoState() {
   return {
     stepIndex: 0,
@@ -237,6 +339,29 @@ export function createCabinetBridgePayload(output) {
     variableId: output.variableId,
     signal: output.value,
     normal: output.normal
+  };
+}
+
+export function calculateCabinetMeasurementResponse(state, scenarioInput) {
+  const scenario = createCabinetMeasurementScenario(scenarioInput);
+  const cable = getCableDefinition(scenario.targetId);
+  const operatedState = applyCabinetCableUpdate(state, {
+    cableId: cable.id,
+    connected: scenario.parameters.connected,
+    sourcePortId: scenario.parameters.sourcePortId,
+    targetPortId: scenario.parameters.targetPortId
+  });
+  const output = evaluateCableSignal(operatedState, cable.id);
+  const points = cable.measurements.map((measurement) =>
+    createResponsePoint(cable, output, measurement, scenario.parameters.time)
+  );
+
+  return {
+    mode: 'snapshot',
+    scenario,
+    summary: buildResponseSummary(points),
+    points,
+    bridgePayload: createCabinetBridgePayload(output)
   };
 }
 

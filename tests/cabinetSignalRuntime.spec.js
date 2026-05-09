@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   CABINET_DEMO_CABLES,
+  calculateCabinetMeasurementResponse,
+  createCabinetMeasurementScenario,
   createCabinetDemoState,
   evaluateCableSignal,
   runCabinetDemoStep
@@ -65,6 +67,66 @@ describe('cabinetSignalRuntime', () => {
       stepIndex: 2,
       signal: 1,
       normal: true
+    });
+  });
+
+  it('uses the platform measurement scenario input and response snapshot output format', () => {
+    const scenario = createCabinetMeasurementScenario({
+      type: 'wire_state',
+      targetKind: 'edge',
+      targetId: 'WIRE-JG-A-B-001',
+      parameters: {
+        connected: true,
+        sourcePortId: 'A-X1',
+        targetPortId: 'B-X1',
+        time: 0
+      }
+    });
+
+    expect(scenario).toEqual({
+      type: 'wire_state',
+      targetKind: 'edge',
+      targetId: 'WIRE-JG-A-B-001',
+      parameters: {
+        connected: true,
+        sourcePortId: 'A-X1',
+        targetPortId: 'B-X1',
+        time: 0
+      }
+    });
+
+    const response = calculateCabinetMeasurementResponse(createCabinetDemoState(), scenario);
+
+    expect(response).toMatchObject({
+      mode: 'snapshot',
+      scenario,
+      summary: {
+        total: 3,
+        affected: 3,
+        cut: 0,
+        abnormal: 0,
+        warning: 0,
+        compensating: 0,
+        normal: 3
+      },
+      bridgePayload: {
+        cableId: 'WIRE-JG-A-B-001',
+        status: 'connected',
+        variableId: 'jg.mid.power_bus.ready',
+        signal: 1,
+        normal: true
+      }
+    });
+    expect(response.points).toHaveLength(3);
+    expect(response.points[0]).toMatchObject({
+      pointId: 'mp-console-health',
+      edgeId: 'WIRE-JG-A-B-001',
+      signalId: 'jg.mid.power_bus.ready',
+      status: 'normal',
+      statusLabelZh: '正常',
+      baselineValue: 1,
+      operatedValue: 1,
+      affectedByTarget: true
     });
   });
 });

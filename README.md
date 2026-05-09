@@ -1,12 +1,13 @@
 # Jigui Demo
 
-三维机柜接线演示子应用，独立于主平台运行。核心计算模块在 `src/services/cabinetSignalRuntime.js`：
+机柜线路传播图演示子应用，独立于主平台运行。核心计算模块在 `src/services/cabinetSignalRuntime.js`：
 
 - 在线访问地址：<https://blank1cheng.github.io/Jigui_demo/>
 
-- 外部输入：`cableId`、`connected/status`、`sourcePortId`、`targetPortId`
-- 中间变量：`jg.mid.power_bus.ready`
-- 输出：`signal` 数值、`normal` 布尔值、显控台状态和测点列表
+- 原平台输入格式：`calculateMeasurementResponse(scenario)`，其中 `scenario` 是 `{ type, targetKind, targetId, parameters }`
+- Demo 输入参数：`targetId` 对应线缆编号，`parameters.connected/sourcePortId/targetPortId/time` 对应外部操作状态
+- 原平台输出格式：`{ mode: "snapshot", scenario, summary, points }`
+- Demo 额外输出：`bridgePayload`，包含 `cableId`、`status`、`variableId`、`signal`、`normal`
 
 ## 本地运行
 
@@ -24,9 +25,8 @@ http://127.0.0.1:5173/
 
 ## 演示流程
 
-1. 进入场景后，`WIRE-JG-A-B-001` 初始断开，显控台异常。
-2. 点击红色断线，再点击 B 柜或 B 柜插口，弹出接入面板。
-3. 选择 `B-X1` 并插入，步进结果立刻变为正常。
-4. 顶部可选择“步进”或“连续运行”。连续运行会周期性调用同一个步进接口。
-5. 右侧“示波器波形”展示实际信号和期望信号，断线为 0，正确接入为 1。
-6. 右侧“外部操作输入”可模拟对接方直接传入某根线的状态，点击后会先写入状态再执行下一步计算。
+1. 打开页面后，`WIRE-JG-A-B-001` 初始断开，传播图显示链路截断，显控台异常。
+2. 在“操作输入”里选择断开、接入正确插口或接入错误插口。
+3. 顶部可选择“步进”或“连续运行”。运行时会先应用当前输入，再计算测点响应。
+4. 中间传播图保持主平台信号链路风格，下面展示全测点响应矩阵和示波器波形。
+5. 右侧显示当前输入 JSON 和输出 JSON，方便确认对接格式。
